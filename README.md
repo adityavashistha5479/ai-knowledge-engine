@@ -148,3 +148,15 @@ _(Update if your app uses a prefix, e.g. `/api/...`.)_
 - Better ranking of sources
 - Answer grounding validation
 - Deployment (AWS / Vercel)
+
+## 🏗 Architecture
+
+- User interacts with Next.js frontend
+- Requests sent to FastAPI backend
+- Backend:
+  - retrieves relevant chunks from FAISS
+  - constructs prompt using LangChain
+  - calls OpenAI API
+- Response is streamed via SSE
+- Frontend renders tokens in real-time
+- Sources are displayed with document + page references
