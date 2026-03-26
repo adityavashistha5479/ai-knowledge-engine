@@ -6,6 +6,7 @@ from app.services.query_service import retrieve_documents
 from app.core.config import settings
 
 
+# 🔥 LLM Setup
 llm = ChatOpenAI(
     model="gpt-4o-mini",
     api_key=settings.OPENAI_API_KEY,
@@ -13,6 +14,7 @@ llm = ChatOpenAI(
 )
 
 
+# 🔥 Prompt Template
 template = """
 You are a helpful AI assistant.
 
@@ -39,14 +41,15 @@ prompt = PromptTemplate(
 )
 
 
+# 🔥 Normal (non-streaming) response
 def ask_question(question: str):
 
     docs, sources, from_docs = retrieve_documents(question)
 
     context = "\n\n---\n\n".join([
-    f"Source: {doc.metadata.get('source')} | Page: {doc.metadata.get('page', 0) + 1}\n{doc.page_content}"
-    for doc in docs
-]) if from_docs else ""
+        f"Source: {doc.metadata.get('source')} | Page: {doc.metadata.get('page', 0) + 1}\n{doc.page_content}"
+        for doc in docs
+    ]) if from_docs else ""
 
     final_prompt = prompt.format(
         context=context,
@@ -58,35 +61,38 @@ def ask_question(question: str):
     return {
         "answer": response.content,
         "sources": sources,
-        "from_docs": from_docs  # 🔥 NEW
+        "from_docs": from_docs
     }
 
 
+# 🔥 Streaming response (SSE)
 async def stream_question(question: str):
 
     docs, sources, from_docs = retrieve_documents(question)
 
     context = "\n\n---\n\n".join([
-    f"Source: {doc.metadata.get('source')} | Page: {doc.metadata.get('page', 0) + 1}\n{doc.page_content}"
-    for doc in docs
-]) if from_docs else ""
+        f"Source: {doc.metadata.get('source')} | Page: {doc.metadata.get('page', 0) + 1}\n{doc.page_content}"
+        for doc in docs
+    ]) if from_docs else ""
 
     final_prompt = prompt.format(
         context=context,
         question=question
     )
 
-    # stream tokens
+    # ✅ Stream tokens
     async for chunk in llm.astream(final_prompt):
         if chunk.content:
-            yield f"data: {json.dumps({
-                'type': 'token',
-                'content': chunk.content
-            })}\n\n"
+            data = {
+                "type": "token",
+                "content": chunk.content
+            }
+            yield f"data: {json.dumps(data)}\n\n"
 
-    # 🔥 send sources + flag at end
-    yield f"data: {json.dumps({
-        'type': 'sources',
-        'data': sources,
-        'from_docs': from_docs
-    })}\n\n"
+    # ✅ Send sources at the end
+    data = {
+        "type": "sources",
+        "data": sources,
+        "from_docs": from_docs
+    }
+    yield f"data: {json.dumps(data)}\n\n"

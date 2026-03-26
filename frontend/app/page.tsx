@@ -54,7 +54,7 @@ export default function Home() {
 
   const startStream = (question: string) => {
     const eventSource = new EventSource(
-      `http://localhost:8000/query-stream?question=${encodeURIComponent(
+      `${process.env.NEXT_PUBLIC_API_URL}/query-stream?question=${encodeURIComponent(
         question,
       )}`,
     );
@@ -97,9 +97,42 @@ export default function Home() {
       }
     };
 
-    eventSource.onerror = () => {
+    eventSource.onerror = async () => {
+      console.log("SSE failed, falling back to /query");
+
       eventSource.close();
       setIsStreaming(false);
+
+      // 🔁 FALLBACK CALL
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/query`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            question: question,
+          }),
+        });
+
+        const data = await res.json();
+
+        setMessages((prev) => {
+          const updated = [...prev];
+          const lastIndex = updated.length - 1;
+
+          updated[lastIndex] = {
+            ...updated[lastIndex],
+            content: data.answer,
+            sources: data.sources,
+            from_docs: data.sources?.length > 0,
+          };
+
+          return updated;
+        });
+      } catch (err) {
+        console.error("Fallback failed:", err);
+      }
     };
   };
 
@@ -192,7 +225,7 @@ export default function Home() {
                             return (
                               <li key={idx}>
                                 <a
-                                  href={`http://localhost:8000/docs/${file}#page=${page}`}
+                                  href={`${process.env.NEXT_PUBLIC_API_URL}/docs/${file}#page=${page}`}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="block hover:text-cyan-300 underline"
