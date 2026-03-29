@@ -21,6 +21,7 @@ export default function Home() {
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const streamBufferRef = useRef("");
@@ -88,7 +89,7 @@ export default function Home() {
   }, [messages]);
 
   const sendMessage = async () => {
-    if (!input.trim() || isStreaming) return;
+    if (!input.trim() || isStreaming || isUploading) return;
 
     let chatId = activeChatId;
     let currentMessages = messages;
@@ -133,10 +134,10 @@ export default function Home() {
     setIsStreaming(true);
 
     try {
+      const apiBase =
+        process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
       const response = await fetch(
-        `https://ai-backend-1001116557936.asia-south1.run.app/query-stream?question=${encodeURIComponent(
-          input,
-        )}`,
+        `${apiBase}/query-stream?question=${encodeURIComponent(input)}`,
       );
 
       if (!response.body) {
@@ -191,9 +192,20 @@ export default function Home() {
 
             // ✅ HANDLE SOURCES
             if (data.type === "sources") {
-              console.log("Sources:", data.data);
-
-              // (we’ll render nicely in next step)
+              setChats((prev) =>
+                prev.map((chat) => {
+                  if (chat.id !== chatId) return chat;
+                  if (chat.messages.length === 0) return chat;
+                  const updated = [...chat.messages];
+                  const last = updated[updated.length - 1];
+                  if (last?.role !== "assistant") return chat;
+                  updated[updated.length - 1] = {
+                    ...last,
+                    sources: Array.isArray(data.data) ? data.data : [],
+                  };
+                  return { ...chat, messages: updated };
+                }),
+              );
             }
           } catch (err) {
             console.error("Parse error:", err, raw);
@@ -314,15 +326,56 @@ export default function Home() {
               }`}
             >
               <div
-                className={`max-w-[75%] px-5 py-4 rounded-2xl text-sm ${
+                className={`group relative max-w-[75%] px-5 py-4 rounded-2xl text-sm leading-relaxed transition ${
                   msg.role === "user"
-                    ? "bg-blue-600"
-                    : "bg-[#111827] border border-gray-700"
+                    ? "bg-blue-600 text-white"
+                    : "bg-[#111827] border border-gray-700 hover:border-gray-600"
                 }`}
               >
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                  {msg.content}
-                </ReactMarkdown>
+                {msg.role === "assistant" && (
+                  <button
+                    onClick={() => navigator.clipboard.writeText(msg.content)}
+                    className="absolute top-2 right-2 text-xs text-gray-400 opacity-0 group-hover:opacity-100 transition hover:text-white"
+                  >
+                    Copy
+                  </button>
+                )}
+
+                <div className="prose prose-invert prose-sm max-w-none whitespace-pre-wrap">
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    components={{
+                      code({ className, children, ...props }) {
+                        const isBlock = Boolean(className);
+
+                        return isBlock ? (
+                          <pre className="bg-black p-3 rounded-lg overflow-x-auto text-sm mt-3">
+                            <code className={className} {...props}>
+                              {children}
+                            </code>
+                          </pre>
+                        ) : (
+                          <code
+                            className="bg-gray-700 px-1 py-0.5 rounded text-sm"
+                            {...props}
+                          >
+                            {children}
+                          </code>
+                        );
+                      },
+                    }}
+                  >
+                    {msg.content}
+                  </ReactMarkdown>
+
+                  {isStreaming &&
+                    msg.role === "assistant" &&
+                    msg.content === "Thinking..." && (
+                      <div className="text-xs text-gray-400 mt-2 animate-pulse">
+                        AI is thinking...
+                      </div>
+                    )}
+                </div>
 
                 {msg.content.includes("⚠️") && (
                   <div className="text-red-400 text-xs mt-2">
@@ -335,6 +388,35 @@ export default function Home() {
                     Generating response...
                   </div>
                 )}
+
+                {msg.sources && msg.sources.length > 0 && (
+                  <div className="mt-5 pt-3 border-t border-gray-700 space-y-2">
+                    <div className="text-xs text-gray-400 uppercase tracking-wide">
+                      Sources
+                    </div>
+
+                    {msg.sources.map((s: any, idx: number) => (
+                      <div
+                        key={idx}
+                        className="bg-gray-900 border border-gray-700 rounded-lg p-3 text-xs hover:border-gray-600 transition"
+                      >
+                        <div className="font-medium text-gray-200">
+                          📄 {s.source}
+                        </div>
+
+                        {s.page && (
+                          <div className="text-gray-400">Page {s.page}</div>
+                        )}
+
+                        {s.snippet && (
+                          <div className="mt-1 text-gray-500 line-clamp-3">
+                            {s.snippet}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           ))}
@@ -342,6 +424,49 @@ export default function Home() {
 
         {/* Input */}
         <div className="border-t border-gray-800 p-4">
+          <div className="max-w-3xl mx-auto mb-3 flex items-center justify-between gap-3">
+            <input
+              type="file"
+              accept=".pdf"
+              disabled={isUploading || isStreaming}
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+
+                setIsUploading(true);
+                try {
+                  const apiBase =
+                    process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+                  const formData = new FormData();
+                  formData.append("file", file);
+
+                  const res = await fetch(`${apiBase}/upload`, {
+                    method: "POST",
+                    body: formData,
+                  });
+
+                  if (!res.ok) {
+                    throw new Error("Upload failed");
+                  }
+
+                  alert("File uploaded!");
+                } catch (err) {
+                  console.error(err);
+                  alert("Upload failed. Please try again.");
+                } finally {
+                  setIsUploading(false);
+                  e.currentTarget.value = "";
+                }
+              }}
+              className="text-xs text-gray-300 file:mr-3 file:rounded-lg file:border-0 file:bg-gray-800 file:px-3 file:py-2 file:text-xs file:text-gray-200 hover:file:bg-gray-700 disabled:opacity-60"
+            />
+
+            {isUploading && (
+              <div className="text-xs text-gray-400 animate-pulse">
+                Uploading and indexing…
+              </div>
+            )}
+          </div>
           <div className="max-w-3xl mx-auto flex gap-3">
             <input
               className="flex-1 bg-[#111827] border border-gray-700 rounded-xl px-4 py-3 text-sm outline-none"
@@ -352,9 +477,9 @@ export default function Home() {
 
             <button
               onClick={sendMessage}
-              disabled={isStreaming}
+              disabled={isStreaming || isUploading}
               className={`px-5 py-3 rounded-xl text-sm font-medium transition ${
-                isStreaming
+                isStreaming || isUploading
                   ? "bg-gray-600 cursor-not-allowed"
                   : "bg-blue-600 hover:bg-blue-700 active:scale-95"
               }`}

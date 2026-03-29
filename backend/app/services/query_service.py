@@ -1,10 +1,6 @@
-from app.services.embedding_service import get_embeddings
-from app.services.vector_store import load_vector_store
-
-
-def retrieve_documents(query: str, k: int = 8):
-    embeddings = get_embeddings()
-    vector_store = load_vector_store(embeddings)
+def retrieve_documents(query: str, vector_store, k: int = 8):
+    if vector_store is None:
+        return [], [], False
 
     # 🔥 Detect broad / summary queries
     is_summary_query = any(word in query.lower() for word in [

@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from app.api.health import router as app_router
 from app.api.query import router as query_router
+from app.api.upload import router as upload_router
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 import os
@@ -25,3 +26,4 @@ app.mount("/docs", StaticFiles(directory=DATA_DIR), name="docs")
 
 app.include_router(app_router)
 app.include_router(query_router)
+app.include_router(upload_router)

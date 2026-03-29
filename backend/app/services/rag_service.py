@@ -43,8 +43,8 @@ prompt = PromptTemplate(
 
 
 # 🔥 Normal (non-streaming)
-def ask_question(question: str):
-    docs, sources, from_docs = retrieve_documents(question)
+def ask_question(question: str, vector_store):
+    docs, sources, from_docs = retrieve_documents(question, vector_store)
 
     context = "\n\n---\n\n".join([
         f"Source: {doc.metadata.get('source')} | Page: {doc.metadata.get('page', 0) + 1}\n{doc.page_content}"
@@ -68,8 +68,8 @@ def ask_question(question: str):
 
 
 # 🔥 Streaming (FIXED)
-async def stream_question(question: str):
-    docs, sources, from_docs = retrieve_documents(question)
+async def stream_question(question: str, vector_store):
+    docs, sources, from_docs = retrieve_documents(question, vector_store)
 
     context = "\n\n---\n\n".join([
         f"Source: {doc.metadata.get('source')} | Page: {doc.metadata.get('page', 0) + 1}\n{doc.page_content}"
