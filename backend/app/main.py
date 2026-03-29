@@ -9,9 +9,17 @@ import os
 
 app = FastAPI()
 
+allowed_origins = [
+    "http://localhost:3000",
+]
+
+frontend_prod = os.getenv("FRONTEND_ORIGIN")
+if frontend_prod:
+    allowed_origins.append(frontend_prod)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # for now (later restrict)
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -22,7 +30,9 @@ PROJECT_ROOT = os.path.abspath(os.path.join(BASE_DIR, ".."))
 
 DATA_DIR = os.path.join(PROJECT_ROOT, "data")
 
-app.mount("/docs", StaticFiles(directory=DATA_DIR), name="docs")
+# Note: FastAPI uses `/docs` for Swagger UI by default.
+# Mounting StaticFiles at `/docs` would hide Swagger, so use a different path.
+app.mount("/documents", StaticFiles(directory=DATA_DIR), name="documents")
 
 app.include_router(app_router)
 app.include_router(query_router)

@@ -1,5 +1,6 @@
 from fastapi import APIRouter, UploadFile, File, Request
 import os
+from threading import Thread
 
 from app.services.upload_service import create_vectorstore
 
@@ -18,7 +19,26 @@ async def upload_file(request: Request, file: UploadFile = File(...)):
     with open(file_path, "wb") as f:
         f.write(contents)
 
-    vectorstore = create_vectorstore(file_path)
-    request.app.state.vectorstore = vectorstore
+    request.app.state.is_indexing = True
 
-    return {"message": "File uploaded and processed", "filename": file.filename}
+    app = request.app
+
+    def process():
+        try:
+            print("Processing started")
+            vectorstore = create_vectorstore(file_path)
+            app.state.vectorstore = vectorstore
+            print("Processing done")
+        except Exception as e:
+            app.state.vectorstore = None
+            app.state.indexing_error = str(e)
+            print("Processing failed:", e)
+        finally:
+            app.state.is_indexing = False
+
+    Thread(target=process, daemon=True).start()
+
+    return {
+        "message": "Upload received, processing in background",
+        "filename": file.filename,
+    }
