@@ -17,12 +17,11 @@ app.add_middleware(
 )
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATA_DIR = os.path.join(BASE_DIR, "..", "data")
+PROJECT_ROOT = os.path.abspath(os.path.join(BASE_DIR, ".."))
 
-print("DATA DIR:", DATA_DIR)
-print("FILES:", os.listdir(DATA_DIR))
+DATA_DIR = os.path.join(PROJECT_ROOT, "data")
 
-app.mount("/docs", StaticFiles(directory="data"), name="docs")
+app.mount("/docs", StaticFiles(directory=DATA_DIR), name="docs")
 
 app.include_router(app_router)
 app.include_router(query_router)

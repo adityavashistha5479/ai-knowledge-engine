@@ -6,12 +6,13 @@ from app.services.query_service import retrieve_documents
 from app.core.config import settings
 
 
-# 🔥 LLM Setup
-llm = ChatOpenAI(
-    model="gpt-4o-mini",
-    api_key=settings.OPENAI_API_KEY,
-    streaming=True
-)
+# ✅ Lazy LLM init
+def get_llm():
+    return ChatOpenAI(
+        model="gpt-4o-mini",
+        api_key=settings.OPENAI_API_KEY,
+        streaming=True
+    )
 
 
 # 🔥 Prompt Template
@@ -41,9 +42,8 @@ prompt = PromptTemplate(
 )
 
 
-# 🔥 Normal (non-streaming) response
+# 🔥 Normal (non-streaming)
 def ask_question(question: str):
-
     docs, sources, from_docs = retrieve_documents(question)
 
     context = "\n\n---\n\n".join([
@@ -55,6 +55,8 @@ def ask_question(question: str):
         context=context,
         question=question
     )
+
+    llm = get_llm()  # ✅ correct
 
     response = llm.invoke(final_prompt)
 
@@ -65,9 +67,8 @@ def ask_question(question: str):
     }
 
 
-# 🔥 Streaming response (SSE)
+# 🔥 Streaming (FIXED)
 async def stream_question(question: str):
-
     docs, sources, from_docs = retrieve_documents(question)
 
     context = "\n\n---\n\n".join([
@@ -80,8 +81,9 @@ async def stream_question(question: str):
         question=question
     )
 
-    # ✅ Stream tokens
-    async for chunk in llm.astream(final_prompt):
+    llm = get_llm()  # ✅ FIXED
+
+    async for chunk in llm.astream(final_prompt):  # ✅ FIXED
         if chunk.content:
             data = {
                 "type": "token",
@@ -89,7 +91,7 @@ async def stream_question(question: str):
             }
             yield f"data: {json.dumps(data)}\n\n"
 
-    # ✅ Send sources at the end
+    # ✅ Send sources
     data = {
         "type": "sources",
         "data": sources,
