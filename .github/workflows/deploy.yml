@@ -34,7 +34,6 @@ steps:
   - name: Push Image
     run: docker push $IMAGE
 
-  - name: Deploy
+  - name: Deploy to Cloud Run
     run: gcloud run deploy $SERVICE --image $IMAGE --region $REGION --platform managed --allow-unauthenticated
-
 ```
