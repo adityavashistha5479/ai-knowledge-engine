@@ -12,19 +12,21 @@ env:
   IMAGE: gcr.io/github-actions-deployer-492717/ai-frontend
 
 jobs:
-  deploy: # The job ID
+  deploy:
     runs-on: ubuntu-latest
-    steps: # Steps must be nested under the job ID
+    steps:
+      # Updated to v4 to support current Node.js runtimes
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
+      # Updated to v2.1+ to ensure compatibility
       - name: Authenticate to GCP
         uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
       - name: Configure Docker
-        run: gcloud auth configure-docker
+        run: gcloud auth configure-docker gcr.io
 
       - name: Build Image
         run: docker build -t $IMAGE ./frontend
