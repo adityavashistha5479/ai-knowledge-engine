@@ -35,10 +35,6 @@ steps:
     run: docker push $IMAGE
 
   - name: Deploy
-    run: |
-      gcloud run deploy $SERVICE \
-        --image $IMAGE \
-        --region $REGION \
-        --platform managed \
-        --allow-unauthenticated
+    run: gcloud run deploy $SERVICE --image $IMAGE --region $REGION --platform managed --allow-unauthenticated
+
 ```
